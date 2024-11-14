@@ -10,7 +10,7 @@ type User = {
 };
 
 type DeployOptions = {
-  admins?: string[];
+  users?: User[];
   managers?: string[];
 };
 
@@ -31,9 +31,9 @@ describe("UnitManager", function () {
       "GybernatyUnitManager"
     );
 
-    const { admins, managers } = options || {};
+    const { users, managers } = options || {};
 
-    return UnitManager.deploy(admins || [], managers || []);
+    return UnitManager.deploy(users || [], managers || []);
   }
 
   describe("fail", () => {
@@ -43,7 +43,6 @@ describe("UnitManager", function () {
           const [owner, otherAccount] = await hre.ethers.getSigners();
 
           const unitManager = await deploy({
-            admins: [owner.address],
             managers: [owner.address],
           });
 
@@ -60,7 +59,6 @@ describe("UnitManager", function () {
           const [owner, otherAccount] = await hre.ethers.getSigners();
 
           const unitManager = await deploy({
-            admins: [owner.address],
             managers: [owner.address],
           });
 
@@ -97,22 +95,54 @@ describe("UnitManager", function () {
 
     describe("make", () => {
       describe("up", () => {
-        it("OnlyAdmin", async () => {
-          const unitManager = await deploy();
-
+        it(`OnlyHigherLevel("You do not have access.")`, async () => {
           const [_, otherAccount] = await hre.ethers.getSigners();
 
-          await expect(
-            unitManager.userLevelUp(otherAccount.address)
-          ).revertedWithCustomError(unitManager, "OnlyAdmin");
+          const unitManager = await deploy({
+            users: [
+              {
+                userAddress: otherAccount.address,
+                level: 2n,
+                markedDown: false,
+                markedUp: false,
+              },
+            ],
+          });
+
+          await expect(unitManager.userLevelUp(otherAccount.address))
+            .revertedWithCustomError(unitManager, `OnlyHigherLevel`)
+            .withArgs("You do not have access.");
+        });
+
+        it(`OnlyHigherLevel("You level is low.")`, async () => {
+          const [owner, otherAccount] = await hre.ethers.getSigners();
+
+          const unitManager = await deploy({
+            users: [
+              {
+                userAddress: owner.address,
+                level: 2n,
+                markedDown: false,
+                markedUp: false,
+              },
+              {
+                userAddress: otherAccount.address,
+                level: 2n,
+                markedDown: false,
+                markedUp: false,
+              },
+            ],
+          });
+
+          await expect(unitManager.userLevelUp(otherAccount.address))
+            .revertedWithCustomError(unitManager, `OnlyHigherLevel`)
+            .withArgs("You level is low.");
         });
 
         it("UserNotFound", async () => {
           const [owner, otherAccount] = await hre.ethers.getSigners();
 
-          const unitManager = await deploy({
-            admins: [owner.address],
-          });
+          const unitManager = await deploy();
 
           await expect(
             unitManager.userLevelUp(otherAccount.address)
@@ -123,7 +153,14 @@ describe("UnitManager", function () {
           const [owner, otherAccount] = await hre.ethers.getSigners();
 
           const unitManager = await deploy({
-            admins: [owner.address],
+            users: [
+              {
+                userAddress: owner.address,
+                level: 2n,
+                markedDown: false,
+                markedUp: false,
+              },
+            ],
             managers: [owner.address],
           });
 
@@ -137,22 +174,54 @@ describe("UnitManager", function () {
       });
 
       describe("down", () => {
-        it("OnlyAdmin", async () => {
-          const unitManager = await deploy();
-
+        it(`OnlyHigherLevel("You do not have access.")`, async () => {
           const [_, otherAccount] = await hre.ethers.getSigners();
 
-          await expect(
-            unitManager.userLevelDown(otherAccount.address)
-          ).revertedWithCustomError(unitManager, "OnlyAdmin");
+          const unitManager = await deploy({
+            users: [
+              {
+                userAddress: otherAccount.address,
+                level: 2n,
+                markedDown: false,
+                markedUp: false,
+              },
+            ],
+          });
+
+          await expect(unitManager.userLevelDown(otherAccount.address))
+            .revertedWithCustomError(unitManager, "OnlyHigherLevel")
+            .withArgs(`You do not have access.`);
+        });
+
+        it(`OnlyHigherLevel("You level is low.")`, async () => {
+          const [owner, otherAccount] = await hre.ethers.getSigners();
+
+          const unitManager = await deploy({
+            users: [
+              {
+                userAddress: owner.address,
+                level: 2n,
+                markedDown: false,
+                markedUp: false,
+              },
+              {
+                userAddress: otherAccount.address,
+                level: 2n,
+                markedDown: false,
+                markedUp: false,
+              },
+            ],
+          });
+
+          await expect(unitManager.userLevelDown(otherAccount.address))
+            .revertedWithCustomError(unitManager, "OnlyHigherLevel")
+            .withArgs(`You level is low.`);
         });
 
         it("UserNotFound", async () => {
           const [owner, otherAccount] = await hre.ethers.getSigners();
 
-          const unitManager = await deploy({
-            admins: [owner.address],
-          });
+          const unitManager = await deploy();
 
           await expect(
             unitManager.userLevelUp(otherAccount.address)
@@ -163,7 +232,14 @@ describe("UnitManager", function () {
           const [owner, otherAccount] = await hre.ethers.getSigners();
 
           const unitManager = await deploy({
-            admins: [owner.address],
+            users: [
+              {
+                userAddress: owner.address,
+                level: 2n,
+                markedDown: false,
+                markedUp: false,
+              },
+            ],
             managers: [owner.address],
           });
 
@@ -182,7 +258,14 @@ describe("UnitManager", function () {
     const [owner, otherAccount] = await hre.ethers.getSigners();
 
     const unitManager = await deploy({
-      admins: [owner.address],
+      users: [
+        {
+          userAddress: owner.address,
+          level: 3n,
+          markedDown: false,
+          markedUp: false,
+        },
+      ],
     });
 
     await expect(unitManager.connect(otherAccount).userMarkUp())
@@ -212,7 +295,14 @@ describe("UnitManager", function () {
     const [owner, otherAccount] = await hre.ethers.getSigners();
 
     const unitManager = await deploy({
-      admins: [owner.address],
+      users: [
+        {
+          userAddress: owner.address,
+          level: 3n,
+          markedDown: false,
+          markedUp: false,
+        },
+      ],
       managers: [owner.address],
     });
 

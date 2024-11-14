@@ -12,7 +12,6 @@ contract GybernatyUnitManager {
     uint32 public constant maxLevel = 4;
 
     address private owner;
-    mapping (address => bool) public admins;
     mapping (address => bool) public managers;
     mapping (address => User) public users;
 
@@ -21,6 +20,7 @@ contract GybernatyUnitManager {
     event UserLevelUp(address userAddress);
     event UserLevelDown(address userAddress);
 
+    error OnlyHigherLevel(string message);
     error OnlyOwner();
     error OnlyAdmin();
     error OnlyManager();
@@ -39,10 +39,20 @@ contract GybernatyUnitManager {
         _;
     }
 
-    modifier onlyAdmin() {
-        if (!admins[msg.sender]) {
-            revert OnlyAdmin();
+
+    modifier onlyHigherLevel(address userAddress) {
+        if (users[userAddress].userAddress == address(0)) {
+            revert UserNotFound();
         }
+
+        if (users[msg.sender].userAddress == address(0)) {
+            revert OnlyHigherLevel("You do not have access.");
+        }
+
+        if (users[userAddress].level >= users[msg.sender].level) {
+            revert OnlyHigherLevel("You level is low.");
+        }
+
         _;
     }
 
@@ -54,11 +64,11 @@ contract GybernatyUnitManager {
         _;
     }
 
-    constructor(address[] memory _admins, address[] memory _managers) {
+    constructor(User[] memory _users, address[] memory _managers) {
         owner = msg.sender;
 
-        for (uint256 i=0; i<_admins.length; i++) {
-            admins[_admins[i]] = true;
+        for (uint256 i=0; i<_users.length; i++) {
+            users[_users[i].userAddress] = _users[i];
         }
 
         for (uint256 i=0; i<_managers.length; i++) {
@@ -72,7 +82,7 @@ contract GybernatyUnitManager {
      * @param userAddress - user address
      * @param level - initial user level
      */
-    function createUser(address userAddress, uint32 level) public onlyAdmin {
+    function createUser(address userAddress, uint32 level) public onlyOwner {
         if (users[userAddress].userAddress != address(0)) {
             revert UserExists();
         }
@@ -145,11 +155,7 @@ contract GybernatyUnitManager {
      * Up user level
      * @param userAddress - user to level up
      */
-    function userLevelUp(address userAddress) public onlyAdmin {
-        if (users[userAddress].userAddress == address(0)) {
-            revert UserNotFound();
-        }
-
+    function userLevelUp(address userAddress) public onlyHigherLevel(userAddress) {
         if (!users[userAddress].markedUp) {
             revert UserNotMarked();
         }
@@ -165,11 +171,7 @@ contract GybernatyUnitManager {
      * Down user level
      * @param userAddress - user to level down
      */
-    function userLevelDown(address userAddress) public onlyAdmin {
-        if (users[userAddress].userAddress == address(0)) {
-            revert UserNotFound();
-        }
-
+    function userLevelDown(address userAddress) public onlyHigherLevel(userAddress) {
         if (users[userAddress].markedDown == false) {
             revert UserNotMarked();
         }
